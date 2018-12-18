@@ -13,70 +13,88 @@
 
 #pragma once
 
-#pragma comment(lib, "OpenMaya.lib")
-#pragma comment(lib, "OpenMayaRender.lib")
-#pragma comment(lib, "OpenMayaAnim.lib")
-#pragma comment(lib, "Foundation.lib")
 #pragma comment(linker, "/export:initializePlugin /export:uninitializePlugin")
 
 #include <maya/MFnPlugin.h>
 
 #include <numeric>
 #include <unsupported/Eigen/MatrixFunctions>
-#include <Eigen/SparseLU>
-#include <Eigen/SparseCholesky>
+#include <Eigen/Sparse>
 
-#include "affinelib.h"
+#include "../affinelib.h"
+#include "../tetrise.h"
+#include "../deformerConst.h"
+#include "../MeshMaya.h"
+#include "../laplacian.h"
+#include "../blendAff.h"
+#include "../distance.h"
 
 typedef Eigen::SparseMatrix<double> SpMat;
 typedef Eigen::Triplet<double> T;
 
 using namespace Eigen;
 
-class CageDeformerNode : public MPxDeformerNode
-{
+class CageDeformerNode : public MPxDeformerNode{
 public:
-    CageDeformerNode(): cageMode(99) {};
+    CageDeformerNode(): isError(0) {};
     virtual MStatus deform( MDataBlock& data, MItGeometry& itGeo, const MMatrix &localToWorldMatrix, unsigned int mIndex );
     static  void*   creator();
     static  MStatus initialize();
  
     static MTypeId      id;
     static MString      nodeName;
+    static MObject      aARAP;
     static MObject      aCageMesh;
+    static MObject      aTetMode;
     static MObject      aCageMode;
     static MObject      aBlendMode;
 	static MObject		aRotationConsistency;
 	static MObject		aFrechetSum;
     static MObject      aConstraintMode;
     static MObject      aConstraintWeight;
-
+    static MObject      aNormExponent;
+    static MObject      aNormaliseTet;
+    static MObject      aTransWeight;
+    static MObject      aSymmetricFace;
+    static MObject      aWeightMode;
+    static MObject		aEffectRadius;
+    static MObject      aConstraintRadius;
+    static MObject      aIteration;
+    static MObject      aNormaliseWeight;
+    static MObject      aAreaWeighted;
+    static MObject      aNeighbourWeighting;
+    static MObject      aPositiveWeight;
+    
 private:
-	void tetMatrix(const MPointArray& p, const MIntArray& triangles, short cageMode, std::vector<Matrix4d>& m);
-    void tetMatrixC(const MPointArray& p, const MIntArray& triangles, std::vector<Matrix4d>& m, std::vector<Vector3d>& tetCenter);
-	void arapHI(const std::vector<Matrix4d>& PI, const MIntArray& triangles);
-	void arapG(const std::vector< Matrix4d>& At, const std::vector<Matrix4d>& PI,
-               const MIntArray& triangles, const std::vector<Matrix4d>& aff, MatrixXd& G);
     MObject     initCageMesh;
-    MPointArray initCagePoints;
-    MPointArray pts;        //  target mesh points
-	MIntArray triangles;    // cage triangles
-	int numPrb,numPts,numTet,numConstraint;
-    short cageMode;
-    short constraintMode;
-    double constraintWeight;
-    std::vector<Matrix4d> initMatrix;    // initial matrix for cage
-    std::vector< std::vector<double> > w;  // weight for the mesh face tetrahedra
-	std::vector<Vector3d> prevNs;         // for continuous log
-	std::vector<double> prevThetas;        //  for continuous log
-    // ARAP
-	std::vector<Matrix4d> PI;      // inverse of tet matrix
-	std::vector<Vector3d> tetCenter;     // barycenter of mesh tetrahedra
-    std::vector<int> constraintTet;      // constrained tet (nearest to some cage face or point)
-    std::vector<RowVector4d> constraintVector;   // initial position of constraint points
-    SimplicialLDLT<SpMat> solver;
-//    SparseLU<SpMat> solver;    // ARAP solver
-    SpMat F;                // ARAP constraint matrix
-	MIntArray meshTriangles;   // target mesh triangles
+    BlendAff    B;
+    Laplacian mesh;
+    Distance D;
+    int numCageTet;
+    short isError;
+    std::vector< std::vector<double> > w;   // weight
+    // cage
+    std::vector<Matrix4d> cageMatrixI;   // inverses of initial cage matrix
+    std::vector<int> cageFaceList;
+    std::vector< int > cageTetList;
+    std::vector< edge > cageEdgeList;
+    std::vector<vertex> cageVertexList;
+    std::vector<Vector3d> initCagePts;
+    std::vector<double> cageTetWeight;
+    // mesh
+    std::vector< edge > edgeList;
+    std::vector<vertex> vertexList;
+    std::vector<int> faceList;
+    std::vector<Vector3d> pts;
+    std::vector<T> constraint;
+    //  find affine transformations for tetrahedra
+    std::vector<Matrix4d> cageMatrix;
+    std::vector<Matrix4d> A,blendedSE;
+    std::vector<Matrix3d> blendedR, blendedS;
+    std::vector<Vector4d> blendedL;
+    std::vector<Vector3d> new_pts;
+    std::vector<Matrix4d> Q;  // temporary
+    std::vector<double> dummy_weight;
+
 };
 
